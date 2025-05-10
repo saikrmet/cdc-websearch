@@ -1,0 +1,6 @@
+fastapi
+azure-identity
+semantic-kernel
+azure-ai-projects
+uvicorn
+jinja2

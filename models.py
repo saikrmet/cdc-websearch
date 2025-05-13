@@ -1,27 +1,41 @@
 from pydantic import BaseModel, Field
 from typing import Literal, Optional, Any
+from azure.ai.projects.models import MessageRole
 
 class AgentRequest(BaseModel):
-    thread_id: int
+    thread_id: Optional[str] = None
     message: str
-
 
 class StreamEventBase(BaseModel):
     type: str
 
-
-class ThreadInitEvent(StreamEventBase):
-    type: Literal["thread_init"]
+class CreateThreadEvent(StreamEventBase):
+    type: Literal["create_thread"]
     thread_id: str
 
+class DeleteThreadRequest(BaseModel):
+    thread_id: str
 
-class MessageStreamEvent(StreamEventBase):
-    type: Literal["message"]
-    role: Literal["user", "assistant", "system"]
+class MessageEvent(StreamEventBase):
+    type: Literal["text"]
+    role: Literal[MessageRole.AGENT, MessageRole.USER]
     message: str
 
-class ErrorStreamEvent(StreamEventBase):
+
+class ErrorEvent(StreamEventBase):
     type: Literal["error"]
     message: str
-    details: Optional[Any] = None
-    code: Optional[str] = None  
+    code: str
+    event_type: Optional[str] = None
+
+class Citation(StreamEventBase):
+    type: Literal["url_citation"]
+    title: str
+    url: str
+    start_index: int
+    end_index: int
+
+class CitationsEvent(StreamEventBase):  
+    type: Literal["citations_event"]
+    citations: list[Citation]
+

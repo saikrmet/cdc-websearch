@@ -1,33 +1,41 @@
 import os
-from fastapi import FastAPI, Request, Depends
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, JSONResponse, RedirectResponse
 from pydantic import ValidationError
 from contextlib import asynccontextmanager
 from pathlib import Path
-from semantic_kernel.agents import AzureAIAgent, Agent
-from azure.ai.projects.models import BingCustomSearchTool
+from azure.ai.projects.aio import AIProjectClient
+from azure.ai.projects.models import Agent, BingCustomSearchTool, AsyncFunctionTool, AsyncToolSet
 from azure.identity.aio import DefaultAzureCredential
 from dotenv import load_dotenv
-from jinja2 import Jinja2Templates
+from fastapi.templating import Jinja2Templates
+import logging
+from models import AgentRequest, DeleteThreadRequest
+from agent import stream_agent_response, format_as_ndjson, delete_thread
 
-from models import AgentRequest
-from agent import stream_agent_response, format_as_ndjson
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
+    logging.info(f"[{os.getenv("PROJECT_CONNECTION_STRING")}]")
+    async with DefaultAzureCredential() as creds:
+        ## Authenticate and get from KV in app
+        async with AIProjectClient.from_connection_string(
+            credential=creds,
+            conn_str=os.getenv("PROJECT_CONNECTION_STRING"),
+        ) as project_client:
+            app.state.project_client = project_client
+            app.state.agent = await project_client.agents.get_agent(agent_id=os.getenv("AGENT_ID"))
+            yield
 
-    async with (
-        DefaultAzureCredential() as creds,
-        AzureAIAgent.create_client(credentials=creds) as project_client
-    ):
-        app.state.agent = await project_client.get_agent(agent_id=os.getenv("AGENT_ID"))
-        yield
     
 app = FastAPI(
-    title="CDC Custom Web Search", 
+    title="CDC Web Search", 
     description="An agentic AI chatbot that searches the web from CDC approved domains",
     lifespan=lifespan
 )
@@ -38,27 +46,36 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-def get_agent(request: Request) -> AzureAIAgent:
+def get_agent(request: Request) -> Agent:
     return request.app.state.agent
 
-@app.get("/", response_class=HTMLResponse)
+def get_project_client(request: Request) -> AIProjectClient:
+    return request.app.state.project_client
+
+@app.get("/")
+async def home():
+    logger.info("Redirect to chat")
+    return RedirectResponse(url="/chat")
+
+@app.get("/chat", response_class=HTMLResponse)
 async def load_chat(request: Request):
     return templates.TemplateResponse("chat.html", {"request": request})
 
-@app.post("/", response_class=StreamingResponse)
-async def get_chat_response(request: Request, agent = Depends(get_agent)):
-    try:
-        data = await request.json()
-        agent_request = AgentRequest(**data)
-    except ValidationError as e:
-        return JSONResponse(
-            status_code=422,
-            content={"type": "request_validation", "detail": e.errors()}
-        )
-
+@app.post("/chat", response_class=StreamingResponse)
+async def get_chat_response(request: AgentRequest, agent = Depends(get_agent), project_client = Depends(get_project_client)):
     return StreamingResponse(
-        format_as_ndjson(stream_agent_response(agent, agent_request)),
+        format_as_ndjson(stream_agent_response(request, project_client, agent)),
         media_type="application/x-ndjson"
-    )       
+    )
 
-
+@app.post("/delete_thread", response_class=JSONResponse)
+async def delete_thread_request(request: DeleteThreadRequest, project_client = Depends(get_project_client)):
+    try:
+        await delete_thread(request.thread_id, project_client)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+    return JSONResponse(
+        content={"message": f"Thread {request.thread_id} deleted successfully."},
+        status_code=200
+    )
+    

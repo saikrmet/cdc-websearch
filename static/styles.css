@@ -1,0 +1,818 @@
+.citation-link {
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--accent-color, #4da2ff);
+    font-size: 0.75em;
+    vertical-align: super;
+}
+
+/* Chips row container */
+.citation-bar {
+    margin-top: .5rem;
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding-top: .5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+}
+
+/* Individual chip */
+.citation-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: var(--chip-bg);
+    border-radius: 6px;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    color: var(--chip-text);
+    text-decoration: none;
+    transition: background 0.2s ease;
+}
+  
+.citation-chip:hover {
+    background: var(--chip-hover-bg);
+}
+  
+.chip-icon {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+/* -------------------------------------- */
+
+/* Define theme variables */
+:root {
+    --background-color: #121212;
+    --text-color: #e0e0e0;
+    --header-text-color: #f0f0f0;
+    --subheader-text-color: #aaa;
+    --card-background: #1d1f24;
+    --button-background: #2196f3;
+    --button-hover: #1976d2;
+    --link-color: #64b5f6;
+    --input-text-color: #e0e0e0;
+    --border-color: #444;
+    --tweet-card-background: #1c1c1c;
+    --tweet-card-border: #2a2a2a;
+    --tweet-author-color: #90caf9;
+    --tweet-date-color: #888;
+    --tweet-text-color: #eee;
+    --tweet-footer-color: #999;
+    --assistant-message-background: #1e1e1e;
+    --label-color: #bbbbbb;
+    --assistant-message-border: #2c2c2c;
+    --assistant-message-text-color: #eee;
+    --chip-bg: rgba(255, 255, 255, 0.06);
+    --chip-hover-bg: rgba(255, 255, 255, 0.15);
+    --chip-text: #e0e0e0;
+
+  }
+  
+  :root[data-theme='light'] {
+    --background-color: #f2f2f2;
+    --text-color: #000000;
+    --header-text-color: #000000;
+    --subheader-text-color: #555;
+    --card-background: #f9f9f9;
+    --button-background: #007bff;
+    --button-hover: #0056b3;
+    --link-color: #007bff;
+    --input-background: #ffffff;
+    --input-text-color: #000000;
+    --border-color: #ccc;
+    --tweet-card-background: #f9f9f9;
+    --tweet-card-border: #ddd;
+    --tweet-author-color: #007bff;
+    --tweet-date-color: #555;
+    --tweet-text-color: #333;
+    --tweet-footer-color: #666;
+    --assistant-message-background: #f9f9f9;
+    --label-color: #333333;
+    --assistant-message-border: #ebebeb;
+    --assistant-message-text-color: #000000;
+    --followup-btn-background: #e8ebfa;
+    --chip-bg: rgba(0, 0, 0, 0.06);
+    --chip-hover-bg: rgba(0, 0, 0, 0.12);
+    --chip-text: #202020;
+
+  }
+  
+  /* Apply theme variables */
+  body {
+    background-color: var(--background-color);
+    color: var(--text-color);
+  }
+  
+  .chart-card {
+    background-color: var(--card-background);
+  }
+  
+  button {
+    background-color: var(--button-background);
+    color: var(--text-color);
+  }
+  
+  button:hover {
+    background-color: var(--button-hover);
+  }
+  
+  a {
+    color: var(--link-color);
+  }
+  
+  /* Header Layout */
+  .nav-header {
+    background-color: #121212; /* Fixed background color */
+    color: #ffffff; /* Fixed text color */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+      padding: 10px 150px;
+    box-shadow: 0px 12px 24px rgba(0, 0, 0, 0.3), 0px 0px 4px rgba(0, 0, 0, 0.16);
+    margin-bottom: 20px;
+  }
+  
+  .nav {
+    display: flex;
+    align-items: center;
+    gap: 20px; /* Add spacing between nav items */
+  }
+  
+  .theme-toggle {
+    display: flex;
+    align-items: center;
+    margin-left: 30px;
+    justify-content: center;
+    gap: 10px; /* Add spacing between the slider and the label */
+  }
+  
+  .theme-label {
+    font-size: 1rem;
+  }
+  
+  /* Navigation buttons, styled similar to your previous icon buttons */
+  .nav-button {
+    display: inline-block;
+    padding: 6px 20px;
+  
+    font-size: 1rem;
+    text-decoration: none;
+    color: #333;
+    background-color: #e8ebfa;
+    border: none;
+    border-radius: 8px;
+    box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.14),
+                0px 0px 2px rgba(0, 0, 0, 0.12);
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .nav-button:hover {
+    background-color: #e0e0e0;
+  }
+  
+  .logo-container .logo {
+    height: 40px;
+    width: auto;
+    margin-top: 5px;
+  }
+  
+  
+  /* === Base Layout === */
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+  
+  .container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    }
+  
+  /* Headings */
+  h1, h2 {
+    font-size: 2.4rem;
+    color: var(--header-text-color);
+    text-align: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  h3 {
+    text-align: center;
+    font-size: 1.5rem;
+    margin-top: 0rem;
+    margin-bottom: 1rem;
+    color: var(--text-color);
+  }
+  
+  .page-header {
+    text-align: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--header-text-color);
+    margin-top: 0rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .page-subheader {
+    text-align: center;
+    font-size: 1.1rem;
+    color: var(--subheader-text-color);
+  }
+  
+  
+  
+  /* === Form Section === */
+  .form-container {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
+  
+  form label {
+    font-weight: 600;
+    color: var(--label-color); /* Use the theme variable for label color */
+  }
+  
+  input[type="date"] {
+    background-color: var(--input-background);
+    color: var(--input-text-color);
+    color-scheme: light dark;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-family: 'Segoe UI', Roboto, sans-serif;
+    font-size: 0.9rem;
+    padding: 0.5rem;
+  }
+  
+  button {
+    background-color: var(--button-background);
+    color: var(--text-color);
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 6px;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+  }
+  
+  button:hover {
+    background-color: var(--button-hover);
+  }
+  
+  /* === Chart Containers === */
+  .chart-card {
+    background-color: var(--card-background);
+    padding: 1.5rem;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    max-width: 50vw;
+    width: 100%;
+    margin: 0.25rem auto 1rem;
+  }
+  
+  
+  canvas {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  hr {
+    display: block;
+    width: 55vw;
+  }
+  
+  /* === Layout Helpers === */
+  .centered-chart {
+    max-width: 600px;
+    margin: auto;
+  }
+  
+  .flex-split {
+    display: flex;
+    padding-top: 1rem;
+    gap: 20px; /* Optional: adds space between the two sections */
+  
+  }
+  
+  .flex-split .left {
+    flex: 2;
+  }
+  
+  
+  .flex-split .right {
+    flex: 1;  /* Both sections take equal width */
+  }
+  
+  /* === Entity list === */
+  ul {
+    list-style: none;
+    padding-left: 1em;
+  }
+  
+  ul li {
+    margin-bottom: 0.5em;
+  }
+  
+  ul li a {
+    color: var(--link-color);
+    text-decoration: none;
+    font-weight: 500;
+  }
+  
+  ul li a:hover {
+    text-decoration: underline;
+  }
+  
+  /* === Tweets === */
+  ul.tweet-list {
+    padding: 0;
+    margin: 0;
+  }
+  
+  li.tweet-card {
+    background: var(--tweet-card-background);
+    padding: 1rem;
+    border-radius: 10px;
+    border: 1px solid var(--tweet-card-border);
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.2);
+    margin-bottom: 1.5rem;
+    transition: box-shadow 0.2s ease;
+  }
+  
+  li.tweet-card:hover {
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+  }
+  
+  .tweet-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.95rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .tweet-author {
+    font-weight: bold;
+    color: var(--tweet-author-color);
+  }
+  
+  .tweet-date {
+    color: var(--tweet-date-color);
+    font-size: 0.9rem;
+  }
+  
+  .tweet-text {
+    margin: 0.5rem 0;
+    color: var(--tweet-text-color);
+    line-height: 1.4;
+  }
+  
+  .tweet-footer {
+    font-size: 0.95rem;
+    color: var(--tweet-footer-color);
+  }
+  
+  .tweet-metrics {
+    display: flex;
+    gap: 15px;
+    margin-top: 8px;
+    font-size: 14px;
+    color: #666;
+  }
+  
+  .tweet-metrics span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .tweet-metrics i {
+    color: #888;
+  }
+  
+  /* === Chat Layout === */
+  /*  */
+  .chat-header {
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+  
+  .chat-title {
+    font-size: 2.25rem;
+    font-weight: bold;
+    color: #ffffff;
+  }
+  
+  .chat-subtitle {
+    font-size: 1rem;
+    color: #aaa;
+    margin-top: 0.25rem;
+  }
+  
+  .chat-viewport {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+    max-height: calc(100vh - 450px); /* enough height minus footer/header */
+    margin-bottom: 2rem;
+  }
+  
+  .chat-box {
+    width: 100%;
+    max-width: 55vw;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding-bottom: 2rem;
+  }
+  
+  .chat-box::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .chat-box::-webkit-scrollbar-thumb {
+    background-color: #444;
+    border-radius: 4px;
+  }
+  
+  .message {
+    display: inline-block;
+    max-width: 85%;
+    border-radius: 18px;
+    line-height: 1.4;
+    font-size: 1rem;
+    max-width: 70%;
+    word-wrap: break-word;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.3);
+    position: relative;
+    margin: 0 1rem; 
+  }
+  
+  .message.user {
+    align-self: flex-end;
+    padding: 0.75rem 1rem;
+    background-color: #2f80ed;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+    text-align: left;
+  }
+  
+  .message.assistant {
+    align-self: flex-start;
+    background-color: var(--assistant-message-background);
+    color: var(--assistant-message-text-color);
+    border-bottom-left-radius: 4px;
+    padding: 0rem 1rem 1rem;
+    text-align: left;
+    border: 1px solid var(--assistant-message-border);
+  }
+  
+  
+  .timestamp {
+    font-size: 0.75rem;
+    color: #aaa;
+    margin-top: 0.1rem;
+    text-align: right;
+  }
+  
+  .followups {
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .followup-btn {
+    background-color: #2a3e59;
+    color: #a3d5ff;
+    padding: 0.5rem 1rem;
+    border: 1px solid #3a5575;
+    border-radius: 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    text-align: left;
+  }
+  
+  .followup-btn:hover {
+    background-color: #365777;
+  }
+  
+  .citations {
+    padding: 0.5rem 0 0 0;
+    font-size: 0.9rem;
+  }
+  
+  
+  .toggle-citations {
+    background-color: #2f80ed;
+    color: #ffffff;
+    font-weight: bold;
+    border: none;
+    cursor: pointer;
+    font-size: inherit;
+  }
+  
+  .toggle-citations:hover {
+    background-color: #78aaec;
+  }
+  
+  .citation-list li.citation-card {
+    background-color: #d1dbfa;
+    color: #000;
+    border-radius: 10px;
+    padding: 0.3rem 1rem;
+    transition: background-color 0.2s ease;
+    cursor: pointer;
+    font-size: inherit;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .citation-list li.citation-card:hover {
+    background-color: #a9bfff;
+  }
+  
+  .citation-text {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  
+  .citation-date {
+    align-self: flex-end;
+    font-size: 0.75rem;
+    color: #555;
+  }
+  
+  .source-label {
+    font-weight: bold;
+    color: #2f80ed;
+  }
+  
+  .chat-footer {
+    padding: 1rem 1.5rem;
+  
+  }
+  
+  .chat-form {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    max-width: 55vw;
+    margin: 0 auto;
+    flex-wrap: wrap; /* allows wrapping if needed */
+  }
+  
+  .input-wrapper {
+    position: relative;
+    flex-grow: 1;
+    padding: 0rem 2.5rem;
+    min-width: 0; /* allows it to shrink */
+  }
+  
+  .chat-form input[type="text"] {
+    width: 100%;
+    min-width: 0;
+    padding: 0.75rem 1rem;
+    border-radius: 16px;
+    border: 1px solid #444;
+    font-size: 1rem;
+    background-color: #121212;
+    color: #eee;
+  }
+  
+  .chat-form input[type="text"]::placeholder {
+    color: #888;
+  }
+  
+  .typing-indicator {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    font-size: 1.5rem;
+    color: #888;
+    animation: pulse 1s infinite ease-in-out;
+  }
+  
+  .typing-indicator span {
+    animation: bounce 1.2s infinite;
+    animation-delay: calc(0.2s * var(--i));
+  }
+  
+  .typing-indicator span:nth-child(1) { --i: 0; }
+  .typing-indicator span:nth-child(2) { --i: 1; }
+  .typing-indicator span:nth-child(3) { --i: 2; }
+  
+  @keyframes bounce {
+    0%, 80%, 100% {
+      transform: scale(1);
+      opacity: 0.3;
+    }
+    40% {
+      transform: scale(1.5);
+      opacity: 1;
+    }
+  }
+  
+  .autocomplete-box {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background-color: #1e1e1e;
+    border: 1px solid #333;
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    z-index: 10;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+  }
+  
+  .suggestion-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    color: #e0e0e0;
+    transition: background-color 0.2s ease-in-out;
+  }
+  
+  .suggestion-item:hover {
+    background-color: #333;
+  }
+  
+  
+  
+  
+  /* new ones */
+  .clear-chat-button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: #aaa;
+    font-size: 1.1rem;
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+  }
+  .clear-chat-button:hover {
+    background-color: #eee;
+  }
+  
+  .clear-chat-button i {
+    margin-right: 8px;
+  }
+  
+  .icon-button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 1.3rem;
+    padding: 4px;
+    border-radius: 4px;
+    margin-right: 4px;
+    transition: background-color 0.2s;
+  }
+  
+  .icon-button i {
+    color: #000;
+  }
+  .icon-button:hover {
+    background-color: #eee;
+  }
+  
+  
+  
+  .questionInputContainer { 
+    border-radius: 8px;
+    box-shadow:
+        0px 8px 16px rgba(0, 0, 0, 0.14),
+        0px 0px 2px rgba(0, 0, 0, 0.12);
+    width: 100%;
+    padding: 15px;
+    background: white;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .questionInputContainer.disabled {
+    background-color: #f0f0f0;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  
+  .questionInputContainer.disabled textarea {
+    background-color: #f0f0f0;
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  
+  .questionInputTextArea {
+    width: 100%;
+  
+    border: none;
+    outline: none;
+    resize: none;
+    font-size: 16px;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  
+  .questionInputButtonsContainer {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: 10px;
+  }
+  
+  /* Toggle Switch */
+  
+  .toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+  
+  .toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: 0.4s;
+    border-radius: 24px;
+  }
+  
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.4s;
+    border-radius: 50%;
+  }
+  
+  input:checked + .slider {
+    background-color: #007bff;
+  }
+  
+  input:checked + .slider:before {
+    transform: translateX(26px);
+  }
+  
+  
+  .initial-questions {
+      text-align: center;
+      align-items: center; /* Center the buttons horizontally */
+  
+  }
+  
+  .initial-questions p {
+      font-size: 1.1rem; /* Larger text for the heading */
+      margin-bottom: 10px;
+  }
+  
+  .initial-question-btn {
+      max-width: 500px; /* Limit the button width */
+      margin: 10px 10px; /* More spacing between buttons */
+      padding: 20px; /* Larger padding for bigger buttons */
+      font-size: 1rem; /* Larger text size */
+      text-align: center;
+      color: #ffffff;
+      background-color: #007bff;
+      border: none;
+      border-radius: 10px; /* Slightly larger border radius */
+      cursor: pointer;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+  }
+  
+  .initial-question-btn:hover {
+      background-color: #0056b3;
+      transform: scale(1.05); /* Slightly enlarge on hover */
+  }
+  

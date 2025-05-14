@@ -30,7 +30,6 @@ async def lifespan(app: FastAPI):
             conn_str=os.getenv("PROJECT_CONNECTION_STRING"),
         ) as project_client:
             app.state.project_client = project_client
-            app.state.agent = await project_client.agents.get_agent(agent_id=os.getenv("AGENT_ID"))
             yield
 
     
@@ -46,9 +45,6 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
-def get_agent(request: Request) -> Agent:
-    return request.app.state.agent
-
 def get_project_client(request: Request) -> AIProjectClient:
     return request.app.state.project_client
 
@@ -57,25 +53,31 @@ async def home():
     logger.info("Redirect to chat")
     return RedirectResponse(url="/chat")
 
+@app.get("/agents")
+async def get_agents(project_client: AIProjectClient = Depends(get_project_client)):
+    agents = await project_client.agents.list_agents()
+    agent_map = [{"id": agent.id, "name": agent.name} for agent in agents.data]
+    logger.info(f"Agents: {agent_map}")
+    return agent_map
+
 @app.get("/chat", response_class=HTMLResponse)
 async def load_chat(request: Request):
     return templates.TemplateResponse("chat.html", {"request": request})
 
 @app.post("/chat", response_class=StreamingResponse)
-async def get_chat_response(request: AgentRequest, agent = Depends(get_agent), project_client = Depends(get_project_client)):
+async def get_chat_response(request: AgentRequest, project_client = Depends(get_project_client)):
     return StreamingResponse(
-        format_as_ndjson(stream_agent_response(request, project_client, agent)),
+        format_as_ndjson(stream_agent_response(request, project_client)),
         media_type="application/x-ndjson"
     )
 
 @app.post("/delete_thread", response_class=JSONResponse)
-async def delete_thread_request(request: DeleteThreadRequest, project_client = Depends(get_project_client)):
+async def delete_thread_request(request: DeleteThreadRequest, project_client: AIProjectClient = Depends(get_project_client)):
+    thread_id = request.thread_id
     try:
-        await delete_thread(request.thread_id, project_client)
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
-    return JSONResponse(
-        content={"message": f"Thread {request.thread_id} deleted successfully."},
-        status_code=200
-    )
-    
+        await project_client.agents.delete_thread(thread_id=thread_id)
+        logger.info(f"Thread {thread_id} deleted successfully.")
+        return {"message": f"Thread {thread_id} deleted successfully."}
+    except Exception as e:
+        logger.error("Thread deletion failed for %s: %s", thread_id, e)
+        raise HTTPException(status_code=500, detail=f"Failed to delete thread {thread_id}: {str(e)}")

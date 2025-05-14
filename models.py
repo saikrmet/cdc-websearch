@@ -4,6 +4,7 @@ from azure.ai.projects.models import MessageRole
 
 class AgentRequest(BaseModel):
     thread_id: Optional[str] = None
+    agent_id: str
     message: str
 
 class StreamEventBase(BaseModel):

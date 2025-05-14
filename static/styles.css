@@ -9,7 +9,7 @@
 /* Chips row container */
 .citation-bar {
     margin-top: .5rem;
-    border-top: 1px solid rgba(255,255,255,0.1);
+    border-top: 1px solid var(--citation-bar-border-color);
     padding-top: .5rem;
     display: flex;
     flex-wrap: wrap;
@@ -35,11 +35,27 @@
 }
   
 .chip-icon {
-    width: 16px;
-    height: 16px;
+    width: 20px;
+    height: 20px;
     border-radius: 3px;
     flex-shrink: 0;
 }
+
+.tippy-box[data-theme~='citation-tip'] {
+    background-color: var(--tooltip-bg);
+    color: var(--tooltip-text);
+    border: 1px solid var(--tooltip-border);
+    box-shadow: var(--tooltip-shadow);
+    border-radius: 6px;
+    font-size: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    max-width: 320px;
+    line-height: 1.4;
+  }
+  
+  .tippy-box[data-theme~='citation-tip'] > .tippy-arrow {
+    color: var(--tooltip-arrow);
+  }
 /* -------------------------------------- */
 
 /* Define theme variables */
@@ -67,6 +83,12 @@
     --chip-bg: rgba(255, 255, 255, 0.06);
     --chip-hover-bg: rgba(255, 255, 255, 0.15);
     --chip-text: #e0e0e0;
+    --citation-bar-border-color: rgba(255,255,255,0.1);
+    --tooltip-bg: #ffffff;
+    --tooltip-text: #1a1a1a;
+    --tooltip-border: #cccccc;
+    --tooltip-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --tooltip-arrow: #ffffff;
 
   }
   
@@ -96,6 +118,12 @@
     --chip-bg: rgba(0, 0, 0, 0.06);
     --chip-hover-bg: rgba(0, 0, 0, 0.12);
     --chip-text: #202020;
+    --citation-bar-border-color: rgba(0,0,0,0.1);
+    --tooltip-bg: #1e1e1e;
+    --tooltip-text: #e0e0e0;
+    --tooltip-border: #444;
+    --tooltip-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --tooltip-arrow: #1e1e1e;
 
   }
   
@@ -402,8 +430,48 @@
   /* === Chat Layout === */
   /*  */
   .chat-header {
-    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     margin-bottom: 1rem;
+    position: relative;
+  }
+
+  .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .agent-selector-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    position: absolute;
+    right: 150px; /* Align to the right */
+  }
+
+  .agent-label {
+    font-size: 1.5rem;
+    color: var(--text-color); /* Use theme variable for dynamic color */
+    font-weight: 500;
+    padding-bottom: 5px;
+  }
+
+  .agent-selector {
+    padding: 0.5rem 1rem;
+    font-size: 1rem;
+    border: 1px solid var(--border-color); /* Use theme variable for border */
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .agent-selector:hover {
+    border-color: var(--button-hover); /* Use theme variable for hover effect */
+    box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
   }
   
   .chat-title {
@@ -815,4 +883,3 @@
       background-color: #0056b3;
       transform: scale(1.05); /* Slightly enlarge on hover */
   }
-  

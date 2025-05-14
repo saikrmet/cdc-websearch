@@ -1,0 +1,493 @@
+{% extends "base.html" %}
+
+{% block title %}CDC Web Search{% endblock %}
+
+{% block content %}
+<header class="chat-header">
+    <div class="header-content">
+        <div class="agent-selector-container">
+            <label for="agentSelect" class="agent-label">Agent:</label>
+            <select id="agentSelect" class="agent-selector" title="Select Agent"></select>
+        </div>
+        <h1 class="page-header">CDC Web Search</h1>
+    </div>
+    <p class="page-subheader">Agentic AI Web Search</p>
+
+    <button id="clearChatButton" class="clear-chat-button" type="button" title="Clear chat">
+        <i class="fa-solid fa-trash-can"></i>
+        <span>Clear Chat</span>
+    </button>
+
+    <div class="initial-questions">
+        <p>Try asking:</p>
+        <button class="initial-question-btn" type="button">Who is the current CDC director?</button>
+        <button class="initial-question-btn" type="button">What is CDC's guidance on masks?</button>
+        <button class="initial-question-btn" type="button">How is CDC responding to measles?</button>
+    </div>
+</header>
+
+<div class="chat-viewport">
+  <div class="chat-box" id="chatBox"></div>
+</div>
+
+<footer class="chat-footer">
+  <form id="chatForm" class="chat-form" onsubmit="handleSubmit(event)">
+  <div id="questionInput" class="questionInputContainer">
+        <textarea id="chatInput" class="questionInputTextArea" 
+                  placeholder="Ask a question..."
+                  maxlength="1000"
+                  rows="1"></textarea>
+        <div class="questionInputButtonsContainer">
+          <button type="button" class="icon-button" id="clearInputButton" title="Clear question"><i class="fa-solid fa-trash-can"></i></button>
+          <button type="submit" class = "icon-button" id="sendButton" title="Send question"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+      </div>
+  </form>
+</footer>
+
+
+
+<script>
+const chatBox = document.getElementById("chatBox");
+const chatViewport = document.querySelector(".chat-viewport");
+const chatInput = document.getElementById("chatInput");
+const chatForm = document.getElementById("chatForm");
+const clearInputBtn = document.getElementById("clearInputButton");
+const clearChatBtn = document.getElementById("clearChatButton");
+const questionInput = document.getElementById("questionInput")
+
+let currentController = null;
+let threadId = null
+
+let selectedAgentId = null;
+
+async function loadAgents() {
+    const res = await fetch("/agents");
+    const agents = await res.json();
+    const dropdown = document.getElementById("agentSelect");
+
+    // Fill dropdown with options
+    agents.forEach(agent => {
+        const option = document.createElement("option");
+        option.value = agent.id;               // used in requests
+        option.textContent = agent.name;       // shown in UI
+        dropdown.appendChild(option);
+    });
+
+    // Auto-select first agent
+    selectedAgentId = agents[0]?.id;
+}
+
+document.getElementById("agentSelect").addEventListener("change", (e) => {
+    selectedAgentId = e.target.value;
+});
+
+loadAgents()
+
+async function handleSubmit(event) {
+    event.preventDefault();
+
+    const userMsg = chatInput.value.trim();
+    if (!userMsg) return;
+
+    chatInput.disabled = true;
+    questionInput.classList.add("disabled");
+    appendUserMessage(userMsg);
+    chatInput.value = "";
+
+
+    if (currentController) currentController.abort();
+    currentController = new AbortController();
+
+    try {
+        const { assistantDiv, textContainer } = appendAssistantMessage();
+
+        const response = await fetch("/chat", {
+            method: "POST",
+            body: JSON.stringify({
+                thread_id: threadId,
+                agent_id: selectedAgentId,
+                message: userMsg 
+            }),
+            signal: currentController.signal,
+            headers: { "Content-Type": "application/json" }
+        });
+        if (!response.ok) throw new Error(`Network error: ${response.statusText}`);
+
+        const reader   = response.body.getReader();
+        const decoder  = new TextDecoder("utf-8");
+        let   buffer   = "";
+        let   markdownBuffer = "";
+        let   citationData   = [];
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                const evt = JSON.parse(line);
+
+                switch (evt.type) {
+                    case "create_thread": {   // CreateThreadEvent
+                        console.log("Thread created:", evt.thread_id);
+                        threadId = evt.thread_id;
+                        break;
+                    }
+                    
+                    {# case "text": {  // MessageEvent
+                        const chunk = evt.message || "";
+                        markdownBuffer += chunk;
+                        textContainer.innerHTML = marked.parse(markdownBuffer);
+                        scrollToBottomSmooth();
+                        await new Promise(r => setTimeout(r, 10));
+                        break;
+                    } #}
+                    case "text": {  // MessageEvent
+                        const chunk = evt.message || "";
+                        markdownBuffer += chunk;
+                        break;
+                    }
+                    case "citations_event": {     // CitationsEvent
+                        citationData.push(...evt.citations);
+                        break;
+                    }
+                    case "error": {               // ErrorEvent
+                        throw new Error(evt.message ?? "Unknown error");
+                    }
+                    default:
+                        console.warn("Unknown event type:", evt.type);
+                }
+            }
+        }
+
+        /* --- Clean‑up & UI restore --------------------------------------- */
+        await reader.cancel(); 
+        finalMarkdown = replaceInlineCitations(markdownBuffer, citationData);
+        await renderMarkdownWithTyping(textContainer, finalMarkdown, 10)
+        
+        chatInput.disabled = false;
+        questionInput.classList.remove("disabled");
+
+        if (citationData.length) appendCitations(assistantDiv, citationData);
+
+        currentController = null;
+        scrollToBottomSmooth();
+
+    } catch (err) {
+        if (err.name === "AbortError") return;      // user cancelled
+        appendAssistantMessage("Error: " + err.message);
+    }
+}
+
+function replaceInlineCitations(raw, cites) {
+    const PLACEHOLDER_RE = /【[^】]+】/g;
+    let counter = 0;
+
+    return raw.replace(PLACEHOLDER_RE, () => {
+        const tag =
+          `<sup class="citation-link" data-index="${counter}">${counter + 1} </sup>`;
+        counter += 1;
+        return tag;
+    });
+}
+
+function appendCitations(assistantDiv, citations) {
+    if (!citations.length) return;
+
+    const bar = document.createElement("div");
+    bar.className = "citation-bar";
+
+    citations.forEach((c, i) => {
+        const chip = document.createElement("a");
+        chip.href        = c.url;
+        chip.target      = "_blank";
+        chip.rel         = "noopener noreferrer";
+        chip.className   = "citation-chip";
+        chip.dataset.index = i;               // link chips to inline <sup> via same index
+        const domain = getDomainFromUrl(c.url);
+        const faviconUrl = domain
+            ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+            : "fallback-icon.svg";  // Optional fallback
+
+        chip.dataset.favicon = faviconUrl;
+
+        chip.innerHTML = `
+        <img class="chip-icon" src="${faviconUrl}" alt="" loading="lazy" />
+        ${escapeHtml(c.title)}
+        `;
+        bar.appendChild(chip);
+    });
+
+    assistantDiv.appendChild(bar);
+
+    const links = bar.querySelectorAll(".citation-chip");
+    tippy(links, {
+        content(reference) {
+            const idx = reference.dataset.index;
+            const faviconUrl = reference.dataset.favicon;
+            const { title, url } = citations[idx];
+            return `<strong>${escapeHtml(title)}</strong><br>${escapeHtml(url)}`;
+        },
+        allowHTML: true,
+        placement: 'bottom-start',
+        theme: 'citation-tip'
+    });
+}
+
+function getDomainFromUrl(url) {
+  try {
+    return new URL(url).hostname;
+  } catch (e) {
+    console.warn("Invalid citation URL:", url);
+    return "";
+  }
+}
+
+/* Helper – basic escaping to avoid XSS in titles */
+function escapeHtml(str) {
+    return str.replace(/[&<>'"]/g, ch =>
+        ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])
+    );
+}
+
+
+async function renderMarkdownWithTyping(element, markdownText, delay = 10) {
+    const lines = markdownText.split('\n');
+    let fullText = "";
+
+    for (const line of lines) {
+        for (let i = 0; i < line.length; i++) {
+            fullText += line[i];
+            element.innerHTML = marked.parse(fullText);
+            scrollToBottomSmooth()
+            await new Promise(r => setTimeout(r, delay));
+        }
+        fullText += "\n";
+        element.innerHTML = marked.parse(fullText);
+        scrollToBottomSmooth()
+        await new Promise(r => setTimeout(r, delay));
+    }
+    return fullText;
+}
+
+function scrollToBottomSmooth() {
+  requestAnimationFrame(() => {
+    chatViewport.scrollTo({
+      top: chatViewport.scrollHeight,
+      behavior: "smooth"
+    });
+  });
+}
+
+function getCurrentTimestamp() {
+  const now = new Date();
+  return now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+
+function appendUserMessage(text) {
+    const div = document.createElement("div");
+    div.className = "message user";
+    div.innerHTML = `
+        <div class="message-content">${text}</div>
+        <div class="timestamp">${getCurrentTimestamp()}</div>
+    `;
+    chatBox.appendChild(div);
+    scrollToBottomSmooth();
+    // chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function appendAssistantMessage() {
+    const div = document.createElement("div");
+    div.className = "message assistant";
+    const messageContent = document.createElement("div");
+    messageContent.className = "message-content";
+
+    const textContainer = document.createElement("div")
+    textContainer.className = "assistant-text"
+    textContainer.innerHTML = `<div class="typing-indicator">
+                                    <span>.</span><span>.</span><span>.</span>
+                                </div>`
+
+    // const timestamp = document.createElement("div")
+    // timestamp.className = "timestamp"
+    // timestamp.innerHTML = getCurrentTimestamp()
+
+    messageContent.appendChild(textContainer)
+    div.appendChild(messageContent)
+    // div.appendChild(timestamp)
+    chatBox.appendChild(div);
+    scrollToBottomSmooth();
+
+    return {assistantDiv: div, textContainer: textContainer};
+}
+
+{# function appendFollowups(parentDiv, followups) {
+    if (!followups.length) return;
+    const section = document.createElement("div");
+    section.className = "followups";
+    followups.forEach(q => {
+        const btn = document.createElement("button");
+        btn.className = "followup-btn";
+        btn.textContent = q;
+        btn.type = "button"
+        btn.onclick = () => {
+            chatInput.value = q;
+            chatForm.requestSubmit();
+        };
+        section.appendChild(btn);
+    });
+    parentDiv.appendChild(section);
+} #}
+
+{# function appendCitations(parentDiv, citations) {
+    if (!citations.length) return;
+    const section = document.createElement("div");
+    section.className = "citations";
+    const toggle = document.createElement("button");
+    toggle.className = "toggle-citations";
+    toggle.textContent = "View Sources";
+    toggle.type = "button";
+    const list = document.createElement("ul");
+    list.className = "citation-list";
+    list.style.display = "none";
+
+    toggle.onclick = () => {
+        const isOpen = list.style.display === "block";
+        list.style.display = isOpen ? "none" : "block";
+        section.classList.toggle("open", !isOpen);
+        toggle.textContent = isOpen ? "View Sources" : "Hide Sources";
+    };
+
+    citations.forEach((c, i) => {
+        const li = document.createElement("li");
+        li.className = "citation-card";
+        li.onclick = () => window.open(c.url, "_blank");
+        const text = document.createElement("div")
+        text.className = "citation-text"
+        const label = document.createElement("span");
+        label.className = "source-label";
+        label.textContent = `Source ${i + 1}: `;
+
+        const snippet = document.createElement("span");
+        snippet.textContent = `${c.snippet.slice(0, 100)}...`;
+
+
+        text.appendChild(label)
+        text.appendChild(snippet);
+        li.appendChild(text);
+
+        if (c.date) {
+            const dateElem = document.createElement("div")
+            const d = new Date(c.date)
+            const formatted = `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`
+
+            dateElem.innerText = formatted
+            dateElem.className = "citation-date"
+            li.appendChild(dateElem) 
+        }
+        list.appendChild(li);
+    });
+
+    section.appendChild(toggle);
+    section.appendChild(list);
+    parentDiv.appendChild(section);
+} #}
+
+{# function getMessages() {
+    const messages = [];
+    chatBox.querySelectorAll(".message").forEach(div => {
+        const isUser = div.classList.contains("user");
+        messages.push({
+            role: isUser ? "user" : "assistant",
+            content: div.querySelector(".message-content").innerText
+        });
+    });
+    messages.pop();
+    return messages;
+} #}
+
+clearInputBtn.addEventListener("click", () => {
+    chatInput.value = ""
+})
+
+chatInput.addEventListener("keydown", function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault(); // Prevent newline insertion
+        // You can call the same submit handler
+        chatForm.requestSubmit()
+      }
+
+})
+
+function toggleInitialQuestions(show) {
+    const initialQuestions = document.querySelector(".initial-questions");
+    if (initialQuestions) {
+        initialQuestions.style.display = show ? "block" : "none";
+    }
+}
+
+document.querySelectorAll(".initial-question-btn").forEach(button => {
+    button.addEventListener("click", () => {
+        chatInput.value = button.textContent;
+        toggleInitialQuestions(false); // Hide initial questions
+        chatForm.requestSubmit();
+    });
+});
+
+chatForm.addEventListener("submit", () => {
+    toggleInitialQuestions(false); // Hide initial questions
+});
+
+clearChatBtn.addEventListener("click", async () => {
+    if (currentController) currentController.abort();
+    chatBox.innerHTML = "";
+    chatInput.value = "";
+
+    toggleInitialQuestions(true); // Show initial questions
+    await deleteThreadRequest(false); 
+});
+
+window.addEventListener("beforeunload", () => {
+    deleteThreadRequest(true)
+});
+
+async function deleteThreadRequest(reload = false) {
+    if (threadId === null) return;
+
+    const body = JSON.stringify({ thread_id: threadId });
+
+    if (reload) {
+        // best‑effort; no promise chaining
+        navigator.sendBeacon("/delete_thread", body);
+        return;
+    }
+
+    // Full fetch with error handling
+    try {
+        const res = await fetch("/delete_thread", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body,
+        });
+
+        if (res.ok) {
+            console.log("Thread deleted successfully");
+        } else {
+            const err = await res.json();
+            console.error("Error deleting thread:", err);
+    }
+    } catch (e) {
+        console.error("Network error deleting thread:", e);
+    } finally {
+        threadId = null                          // always reset locally
+    }
+}
+
+</script>
+{% endblock %}

@@ -6,9 +6,10 @@ from pydantic import ValidationError
 from contextlib import asynccontextmanager
 from pathlib import Path
 from azure.ai.projects.aio import AIProjectClient
+from azure.keyvault.secrets.aio import SecretClient
 from azure.ai.projects.models import Agent, BingCustomSearchTool, AsyncFunctionTool, AsyncToolSet
 from azure.identity.aio import DefaultAzureCredential
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 from fastapi.templating import Jinja2Templates
 import logging
 from models import AgentRequest, DeleteThreadRequest
@@ -17,24 +18,27 @@ from agent import stream_agent_response, format_as_ndjson, delete_thread
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
-load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
+# load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logging.info(f"[{os.getenv("PROJECT_CONNECTION_STRING")}]")
     async with DefaultAzureCredential() as creds:
-        ## Authenticate and get from KV in app
-        async with AIProjectClient.from_connection_string(
+        async with SecretClient(
+            vault_url=os.getenv("KEY_VAULT_URI"),
             credential=creds,
-            conn_str=os.getenv("PROJECT_CONNECTION_STRING"),
-        ) as project_client:
-            app.state.project_client = project_client
-            yield
+        ) as secret_client:
+            connection_string = (await secret_client.get_secret("PROJECT-CONNECTION-STRING")).value
+            async with AIProjectClient.from_connection_string(
+                credential=creds,
+                conn_str=connection_string,
+            ) as project_client:
+                app.state.project_client = project_client
+                yield
 
     
 app = FastAPI(
-    title="CDC Web Search", 
+    title="CDC Agentic AI Chatbot", 
     description="An agentic AI chatbot that searches the web from CDC approved domains",
     lifespan=lifespan
 )
@@ -53,7 +57,7 @@ async def home():
     logger.info("Redirect to chat")
     return RedirectResponse(url="/chat")
 
-@app.get("/agents")
+@app.get("/agents", response_class=JSONResponse)
 async def get_agents(project_client: AIProjectClient = Depends(get_project_client)):
     agents = await project_client.agents.list_agents()
     agent_map = [{"id": agent.id, "name": agent.name} for agent in agents.data]

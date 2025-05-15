@@ -2,5 +2,7 @@ fastapi
 azure-identity
 semantic-kernel
 azure-ai-projects
+azure-keyvault
 uvicorn
+gunicorn
 jinja2

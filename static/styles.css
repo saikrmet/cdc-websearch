@@ -284,8 +284,10 @@
 
   .agent-selector {
     padding: 0.5rem 1rem;
-    font-size: 1rem;
+    font-size: 1.1rem;
     border: 1px solid var(--border-color); /* Use theme variable for border */
+    color: var(--text-color);
+    background-color: var(--assistant-message-background);
     border-radius: 8px;
     cursor: pointer;
     transition: border-color 0.2s ease, box-shadow 0.2s ease;

@@ -36,6 +36,11 @@ class Citation(StreamEventBase):
     start_index: int
     end_index: int
 
+class BingGroundingEvent(StreamEventBase):
+    type: Literal["bing_grounding"]
+    title: str
+    url: str
+
 class CitationsEvent(StreamEventBase):  
     type: Literal["citations_event"]
     citations: list[Citation]

@@ -78,6 +78,90 @@ async def stream_agent_response(agent_request: AgentRequest, project_client: AIP
         citations=citations,
     )
 
+    
+
+class StreamingEventHandler(AsyncAgentEventHandler):
+    def __init__(self, queue: asyncio.Queue):
+        self.queue = queue 
+
+    async def on_thread_run(self, run: "ThreadRun") -> None:
+        logger.info(f"ThreadRun status: {run.status}")
+        if run.status == "failed":
+            event = ErrorEvent(
+                type="ThreadRunError",
+                message=run.last_error.message,
+                code=run.last_error.code
+            )
+            logger.info(f"A ThreadRunError occurred. Event: {event}")
+            await self.queue.put(event)
+
+    async def on_error(self, data: str) -> None:
+        event = ErrorEvent(
+            type="Error",
+            message=data
+        )
+        logger.info(f"An Error occurred. Event: {event}")
+        await self.queue.put(event)
+
+    async def on_unhandled_event(self, event_type: str, event_data: Any) -> None:
+        event = ErrorEvent(
+            type="UnhandledEventError",
+            message=event_data,
+            event_type=event_type
+        )
+        logger.info(f"An UnhandledEventError occurred. Event: {event}")
+        await self.queue.put(event)
+
+    async def on_done(self) -> None:
+        logger.info("Streaming done.")
+        await self.queue.put(None)
+
+    async def on_message_delta(self, delta: "MessageDeltaChunk") -> None:
+        # Need to get fields and structure Pydantic object
+        event = MessageDeltaEvent(
+            type="MessageDelta",
+            message_id=delta.id,
+            text=delta.text
+        )
+        logger.info(f"MessageDeltaEvent: {event.text}")
+        await self.queue.put(event)
+
+    async def on_thread_message(self, message: "ThreadMessage") -> None:
+        # Need to get citations and others and create Pydantic
+        pass
+        
+    async def on_run_step(self, step: "RunStep") -> None:
+        logger.info(f"RunStep status: {step.status}")
+        if step.status == "failed":
+            event = ErrorEvent(
+                type="RunStepError",
+                message=step.last_error.message,
+                code=step.last_error.code
+            )
+            logger.info(f"A RunStepError occurred. Event: {event}")
+            await self.queue.put(event)
+
+        elif step.status == "completed":
+            if step.type == "tool_calls":
+                for tcall in step.step_details.get("tool_calls", []):
+                    step_details_type = tcall.get("type")
+                    if step_details_type == "bing_custom_search":
+                        request_url = tcall.get("bing_custom_search", {}).get("requesturl", "")
+                        if not request_url.strip():
+                            return
+
+                        query_str = extract_bing_query(request_url)
+                        if not query_str.strip():
+                            return
+
+                        event = RunStepEvent(
+                            type="RunStep",
+                            step_type=step.type,
+                            step_details_type=step_details_type,
+                            content=query_str
+                        )
+                        logger.info(f"RunStepEvent: {event}")
+                        await self.queue.put(event)
 
 
 def extract_bing_query(request_url: str) -> str:

@@ -116,9 +116,10 @@ async function handleSubmit(event) {
 
         const reader   = response.body.getReader();
         const decoder  = new TextDecoder("utf-8");
-        let   buffer   = "";
-        let   markdownBuffer = "";
-        let   citationData   = [];
+        let buffer   = "";
+        let markdownBuffer = "";
+        let citationData   = [];
+        let grounding_citation = null;
 
         while (true) {
             const { value, done } = await reader.read();
@@ -139,17 +140,13 @@ async function handleSubmit(event) {
                         break;
                     }
                     
-                    {# case "text": {  // MessageEvent
-                        const chunk = evt.message || "";
-                        markdownBuffer += chunk;
-                        textContainer.innerHTML = marked.parse(markdownBuffer);
-                        scrollToBottomSmooth();
-                        await new Promise(r => setTimeout(r, 10));
-                        break;
-                    } #}
                     case "text": {  // MessageEvent
                         const chunk = evt.message || "";
                         markdownBuffer += chunk;
+                        break;
+                    }
+                    case "bing_grounding": {
+                        grounding_citation = evt
                         break;
                     }
                     case "citations_event": {     // CitationsEvent
@@ -172,7 +169,7 @@ async function handleSubmit(event) {
         
         chatInput.disabled = false;
         questionInput.classList.remove("disabled");
-
+        if (grounding_citation != null) citationData.unshift(grounding_citation)
         if (citationData.length) appendCitations(assistantDiv, citationData);
 
         currentController = null;

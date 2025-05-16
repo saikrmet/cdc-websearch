@@ -8,7 +8,7 @@ from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import Agent, AgentThread, MessageRole
 from azure.ai.projects.models import ThreadMessage
 
-from models import AgentRequest, MessageEvent, ErrorEvent, Citation, CitationsEvent, CreateThreadEvent, DeleteThreadRequest
+from models import AgentRequest, MessageEvent, ErrorEvent, Citation, CitationsEvent, CreateThreadEvent, DeleteThreadRequest, BingGroundingEvent
 logger = logging.getLogger(__name__)
 
 
@@ -52,7 +52,6 @@ async def stream_agent_response(agent_request: AgentRequest, project_client: AIP
         logger.error("No response message found.")
         return
 
-    citations = []
     for text_message in response_message.text_messages:
         event = MessageEvent(
             type=text_message.type,
@@ -61,6 +60,37 @@ async def stream_agent_response(agent_request: AgentRequest, project_client: AIP
         )
         logger.info(f"Message Event: {event}")
         yield event
+
+    citations = []
+    run_step_list = await project_client.agents.list_run_steps(thread_id=thread_id, run_id=run.id)
+    for run_step in run_step_list.data:
+        if run_step.status == "failed":
+            event = ErrorEvent(
+                type="RunStepError",
+                message=run_step.last_error.message,
+                code=run_step.last_error.code
+            )
+            logger.error(f"A RunStepError occurred. Event: {event}")
+            yield event
+        elif run_step.type == "tool_calls":
+            for tcall in run_step.step_details.get("tool_calls", []):
+                step_details_type = tcall.get("type")
+                if step_details_type == "bing_grounding":
+                    request_url = tcall.get("bing_grounding", {}).get("requesturl", "")
+                    if not request_url.strip():
+                        return
+
+                    query_str = extract_bing_query(request_url)
+                    if not query_str.strip():
+                        return
+
+                    event = BingGroundingEvent(
+                        type=step_details_type,
+                        title=f"AI Web Search: {query_str}",
+                        url=f"https://www.bing.com/search?q={query_str}",
+                    )
+                    logging.info(f"BingGroundingEvent: {event}")
+                    yield event
 
     for annotation in response_message.url_citation_annotations:
         citation = Citation(
@@ -86,7 +116,7 @@ def extract_bing_query(request_url: str) -> str:
       https://api.bing.microsoft.com/v7.0/search?q="latest news about Microsoft January 2025"
     Returns: latest news about Microsoft January 2025
     """
-    match = re.search(r'q="([^"]+)"', request_url)
+    match = re.search(r'[?&]q=([^&]+)', request_url)
     if match:
         return match.group(1)
     # If no match, fall back to entire request_url

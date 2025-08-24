@@ -30,7 +30,7 @@ class ErrorEvent(StreamEventBase):
     event_type: Optional[str] = None
 
 class Citation(StreamEventBase):
-    type: Literal["url_citation"]
+    type: Literal["url_citation", "file_citation"]
     title: str
     url: str
     start_index: int
@@ -40,6 +40,15 @@ class BingGroundingEvent(StreamEventBase):
     type: Literal["bing_grounding"]
     title: str
     url: str
+
+class FileSearchItem(StreamEventBase):
+    type: Literal["file_search"]
+    name: str
+    content: str
+
+class FileSearchEvent(StreamEventBase):
+    type: Literal["file_search_event"]
+    items: list[FileSearchItem]
 
 class CitationsEvent(StreamEventBase):  
     type: Literal["citations_event"]

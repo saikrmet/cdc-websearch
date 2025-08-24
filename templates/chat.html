@@ -119,7 +119,7 @@ async function handleSubmit(event) {
         let buffer   = "";
         let markdownBuffer = "";
         let citationData   = [];
-        let grounding_citation = null;
+        let groundingCitation = null;
 
         while (true) {
             const { value, done } = await reader.read();
@@ -146,7 +146,11 @@ async function handleSubmit(event) {
                         break;
                     }
                     case "bing_grounding": {
-                        grounding_citation = evt
+                        groundingCitation = evt
+                        break;
+                    }
+                    case "file_search_event": {  // FileSearchEvent
+                        citationData.push(...evt.items)
                         break;
                     }
                     case "citations_event": {     // CitationsEvent
@@ -164,13 +168,13 @@ async function handleSubmit(event) {
 
         /* --- Clean‑up & UI restore --------------------------------------- */
         await reader.cancel(); 
-        finalMarkdown = replaceInlineCitations(markdownBuffer, citationData);
+        const {text: finalMarkdown, counter: count} = replaceInlineCitations(markdownBuffer, citationData);
         await renderMarkdownWithTyping(textContainer, finalMarkdown, 10)
         
         chatInput.disabled = false;
         questionInput.classList.remove("disabled");
-        if (grounding_citation != null) citationData.unshift(grounding_citation)
-        if (citationData.length) appendCitations(assistantDiv, citationData);
+   
+        if (citationData.length && count !== 0) appendCitations(assistantDiv, citationData, count, groundingCitation);
 
         currentController = null;
         scrollToBottomSmooth();
@@ -185,50 +189,97 @@ function replaceInlineCitations(raw, cites) {
     const PLACEHOLDER_RE = /【[^】]+】/g;
     let counter = 0;
 
-    return raw.replace(PLACEHOLDER_RE, () => {
+    const text = raw.replace(PLACEHOLDER_RE, () => {
         const tag =
           `<sup class="citation-link" data-index="${counter}">${counter + 1} </sup>`;
         counter += 1;
         return tag;
     });
+    return {text, counter}
 }
 
-function appendCitations(assistantDiv, citations) {
-    if (!citations.length) return;
-
+function appendCitations(assistantDiv, citations, count, groundingCitation) {
     const bar = document.createElement("div");
     bar.className = "citation-bar";
 
-    citations.forEach((c, i) => {
+    if (groundingCitation) {
         const chip = document.createElement("a");
-        chip.href        = c.url;
+        chip.href        = groundingCitation.url;
         chip.target      = "_blank";
         chip.rel         = "noopener noreferrer";
         chip.className   = "citation-chip";
-        chip.dataset.index = i;               // link chips to inline <sup> via same index
-        const domain = getDomainFromUrl(c.url);
+        const domain = getDomainFromUrl(groundingCitation.url);
         const faviconUrl = domain
             ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
             : "fallback-icon.svg";  // Optional fallback
 
-        chip.dataset.favicon = faviconUrl;
-
         chip.innerHTML = `
         <img class="chip-icon" src="${faviconUrl}" alt="" loading="lazy" />
-        ${escapeHtml(c.title)}
+        ${escapeHtml(groundingCitation.title)}
         `;
         bar.appendChild(chip);
+
+        tippy(chip, {
+            content: `<strong>${escapeHtml(groundingCitation.title)}</strong><br>${escapeHtml(groundingCitation.url)}`,
+            allowHTML: true,
+            placement: 'bottom-start',
+            theme: 'citation-tip'
+        });
+
+    }
+
+    const displayCitations = citations.slice(0, count); 
+
+    displayCitations.forEach((c, i) => {
+        if (c.type === "file_search") {
+            const fileChip = document.createElement("div");
+            fileChip.className = "citation-chip";
+            fileChip.dataset.index = i;   // link chips to inline <sup> via same index
+            fileChip.innerHTML = `
+            ${i + 1} |
+            <i class="fa-solid fa-file-lines"></i>
+            ${escapeHtml(c.name)}
+            `;
+            bar.appendChild(fileChip);
+        } else {
+            const chip = document.createElement("a");
+            chip.href        = c.url;
+            chip.target      = "_blank";
+            chip.rel         = "noopener noreferrer";
+            chip.className   = "citation-chip";
+            chip.dataset.index = i;               // link chips to inline <sup> via same index
+            const domain = getDomainFromUrl(c.url);
+            const faviconUrl = domain
+                ? `https://www.google.com/s2/favicons?domain=${domain}&sz=32`
+                : "fallback-icon.svg";  // Optional fallback
+
+            chip.dataset.favicon = faviconUrl;
+
+            chip.innerHTML = `
+            <img class="chip-icon" src="${faviconUrl}" alt="" loading="lazy" />
+            ${i + 1} | 
+            ${escapeHtml(c.title)}
+            `;
+            bar.appendChild(chip);
+        }
+
+        
     });
 
     assistantDiv.appendChild(bar);
 
-    const links = bar.querySelectorAll(".citation-chip");
+    const links = bar.querySelectorAll(".citation-chip[data-index]");
     tippy(links, {
         content(reference) {
             const idx = reference.dataset.index;
-            const faviconUrl = reference.dataset.favicon;
-            const { title, url } = citations[idx];
-            return `<strong>${escapeHtml(title)}</strong><br>${escapeHtml(url)}`;
+            {# const faviconUrl = reference.dataset.favicon; #}
+            const citation = displayCitations[idx];
+            if (citation.type === "file_search") {
+                return `${escapeHtml(citation.content.slice(0, 500))}...`;
+            } else {
+                return `<strong>${escapeHtml(citation.title)}</strong><br>${escapeHtml(citation.url)}`;
+            }
+            
         },
         allowHTML: true,
         placement: 'bottom-start',

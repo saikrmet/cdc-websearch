@@ -9,7 +9,7 @@ from azure.ai.projects.aio import AIProjectClient
 from azure.keyvault.secrets.aio import SecretClient
 from azure.ai.projects.models import Agent, BingCustomSearchTool, AsyncFunctionTool, AsyncToolSet
 from azure.identity.aio import DefaultAzureCredential
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 from fastapi.templating import Jinja2Templates
 import logging
 from models import AgentRequest, DeleteThreadRequest
@@ -18,7 +18,7 @@ from agent import stream_agent_response, format_as_ndjson, delete_thread
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
-# load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
+load_dotenv(Path(__file__).resolve().parent / ".env", override=True)
 
 
 @asynccontextmanager
@@ -38,8 +38,8 @@ async def lifespan(app: FastAPI):
 
     
 app = FastAPI(
-    title="CDC Agentic AI Chatbot", 
-    description="An agentic AI chatbot that searches the web from CDC approved domains",
+    title="JRSS Agentic AI Chatbot", 
+    description="An agentic AI chatbot",
     lifespan=lifespan
 )
 

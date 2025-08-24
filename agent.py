@@ -8,7 +8,8 @@ from azure.ai.projects.aio import AIProjectClient
 from azure.ai.projects.models import Agent, AgentThread, MessageRole
 from azure.ai.projects.models import ThreadMessage
 
-from models import AgentRequest, MessageEvent, ErrorEvent, Citation, CitationsEvent, CreateThreadEvent, DeleteThreadRequest, BingGroundingEvent
+from models import AgentRequest, MessageEvent, ErrorEvent, Citation, CitationsEvent, CreateThreadEvent, DeleteThreadRequest 
+from models import BingGroundingEvent, FileSearchItem, FileSearchEvent
 logger = logging.getLogger(__name__)
 
 
@@ -62,7 +63,7 @@ async def stream_agent_response(agent_request: AgentRequest, project_client: AIP
         yield event
 
     citations = []
-    run_step_list = await project_client.agents.list_run_steps(thread_id=thread_id, run_id=run.id)
+    run_step_list = await project_client.agents.list_run_steps(thread_id=thread_id, run_id=run.id, include=["step_details.tool_calls[*].file_search.results[*].content"])
     for run_step in run_step_list.data:
         if run_step.status == "failed":
             event = ErrorEvent(
@@ -92,6 +93,25 @@ async def stream_agent_response(agent_request: AgentRequest, project_client: AIP
                     logging.info(f"BingGroundingEvent: {event}")
                     yield event
 
+                elif step_details_type == "file_search":
+                    file_res = tcall.get("file_search", {}).get("results", [])
+                    items = []
+                    for f in file_res:
+                        content_arr = f.get("content", [])
+                        content_item = content_arr[0] if len(content_arr) > 0 else {}
+                        item = FileSearchItem(
+                            type=step_details_type, 
+                            name=f.get("file_name", ""),
+                            content=content_item.get("text", ""),
+                        )
+                        items.append(item)
+                    if items:
+                        yield FileSearchEvent(
+                            type="file_search_event",
+                            items=items,
+                        )
+                    
+
     for annotation in response_message.url_citation_annotations:
         citation = Citation(
             type=annotation.type,
@@ -100,13 +120,14 @@ async def stream_agent_response(agent_request: AgentRequest, project_client: AIP
             start_index=annotation.start_index,
             end_index=annotation.end_index,
         )
-        logging.info(f"Citation: {citation}")
+        logging.info(f"Web Citation: {citation}")
         citations.append(citation)
 
-    yield CitationsEvent(
-        type="citations_event",
-        citations=citations,
-    )
+    if citations:
+        yield CitationsEvent(
+            type="citations_event",
+            citations=citations,
+        )
 
 
 
